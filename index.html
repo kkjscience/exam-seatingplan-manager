@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+    <meta charset="UTF-8">
+    <title>Professional School Exam Seating Tool</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', Arial, sans-serif; background: #f4f7f6; padding: 15px; margin: 0; }
+        .container { max-width: 1100px; margin: auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.08); }
+        .no-print { background: #f8f9fa; padding: 15px; border-radius: 6px; margin-bottom: 20px; border: 1px solid #ddd; }
+        .input-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+        label { font-weight: bold; display: block; margin-bottom: 4px; font-size: 13px; }
+        input, textarea, select { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        .btn-group { text-align: center; margin-top: 15px; }
+        button { padding: 9px 18px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 14px; margin: 3px; }
+        .gen-btn { background: #007bff; color: white; }
+        .print-btn { background: #28a745; color: white; }
+        .pdf-btn { background: #dc3545; color: white; }
+        .word-btn { background: #6f42c1; color: white; }
+
+        /* Output Canvas */
+        #printArea { background: #fff; padding: 10px; box-sizing: border-box; }
+        .sheet-header { text-align: center; border-bottom: 2px solid #000; padding-bottom: 4px; margin-bottom: 8px; }
+        
+        /* स्कूल का नाम 12pt और बिना बोल्ड */
+        .sheet-header h1 { margin: 0; font-size: 12pt; font-weight: normal; } 
+        
+        .sheet-header h2 { margin: 3px 0; font-size: 15px; text-transform: uppercase; }
+        .sheet-header h3 { margin: 2px 0; font-size: 13px; color: #333; }
+
+        table { border-collapse: collapse; margin-top: 4px; table-layout: fixed; }
+        #planTable { width: 80%; margin: 0 auto; }
+        #planTable th, #planTable td { border: 2px solid #000; text-align: center; vertical-align: middle; padding: 3px; }
+        
+        .sub-name { display: block; font-size: 10px; color: #444; font-weight: bold; text-transform: uppercase; margin-bottom: 2px; }
+        .r-num { display: block; font-weight: 900; color: #000; }
+        
+        .summary-wrapper { margin-top: 12px; border-top: 1.5px dashed #000; padding-top: 6px; }
+
+        .verification-line { text-align: center; margin: 8px 0 4px 0; font-weight: bold; font-style: italic; font-size: 13px; }
+        .footer-sign { display: flex; justify-content: space-between; margin-top: 25px; padding: 0 25px; font-weight: bold; font-size: 12px; text-align: center; }
+        
+        @media print {
+            @page { size: A4 landscape; margin: 5mm; }
+            html, body { background: #fff; }
+            .no-print { display: none !important; }
+            .container { box-shadow: none; padding: 0; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="no-print">
+        <h3 style="text-align: center; margin-top: 0; color: #007bff;">Exam Seating Manager</h3>
+        
+        <div style="margin-bottom: 10px;">
+            <label>स्कूल का नाम (School Name):</label>
+            <input type="text" id="schoolName" value="राजकीय इंटर कॉलेज गौजानी, रामनगर (नैनीताल)">
+        </div>
+
+        <div class="input-grid">
+            <div>
+                <label>परीक्षा का प्रकार:</label>
+                <select id="examType" onchange="toggleMonth()">
+                    <option value="मासिक परीक्षा (Monthly Exam)">मासिक परीक्षा</option>
+                    <option value="अर्द्ध-वार्षिक परीक्षा (Half-Yearly Exam)">अर्द्ध-वार्षिक परीक्षा</option>
+                    <option value="वार्षिक परीक्षा (Annual Exam)">वार्षिक परीक्षा</option>
+                </select>
+            </div>
+            <div id="monthBox">
+                <label>महीना (Month):</label>
+                <select id="monthName">
+                    <option value="January">January</option><option value="October" selected>October</option>
+                </select>
+            </div>
+            <div><label>सत्र (Session):</label><input type="text" id="examYear" value="2026-27"></div>
+            <div><label>कमरा नंबर (Room No.):</label><input type="text" id="room" value="01"></div>
+            
+            <!-- नया ऑप्शन: रोल नंबर कहाँ से शुरू करें -->
+            <div>
+                <label>शुरुआत (Start From):</label>
+                <select id="fillDirection">
+                    <option value="left">बाएँ से (Left Column)</option>
+                    <option value="right">दाएँ से (Right Column)</option>
+                </select>
+            </div>
+            
+            <div><label>Rows (पंक्तियाँ):</label><input type="number" id="rows" value="6" min="1"></div>
+            <div><label>Columns (कॉलम):</label><input type="number" id="cols" value="5" min="1"></div>
+        </div>
+
+        <div style="margin-top:10px; background: #fffbe6; padding: 8px; border: 1px solid #ffe58f;">
+            <textarea id="classes" rows="4" style="font-family: monospace;">6th, Math, 601, 615
+7th, 701, 715
+8th, Science, 801, 815</textarea>
+        </div>
+
+        <div class="btn-group">
+            <button class="gen-btn" onclick="generate()">प्लान जनरेट करें</button>
+            <button class="print-btn" onclick="window.print()">प्रिंट निकालें</button>
+            <button class="pdf-btn" onclick="downloadPDF()">PDF डाउनलोड करें</button>
+            <button class="word-btn" onclick="downloadWord()">Word डाउनलोड करें</button>
+        </div>
+    </div>
+
+    <!-- Print Area -->
+    <div id="printArea">
+        <div class="sheet-header">
+            <h1 id="outSchool"></h1>
+            <h2 id="outExam"></h2>
+            <h3 id="outRoom"></h3>
+        </div>
+
+        <table id="planTable"></table>
+
+        <div class="summary-wrapper">
+            <div id="summaryTableContainer"></div>
+            
+            <div class="verification-line">"सीटिंग प्लान मिलान किया गया"</div>
+            <div style="text-align: center; margin-top: 5px; font-size: 11px;">
+                ...................................................<br>
+                <b>कक्ष निरीक्षक के हस्ताक्षर (Invigilator Sign)</b>
+            </div>
+
+            <div class="footer-sign">
+                <div>................................<br>परीक्षा-प्रभारी<br>(Exam In-charge)</div>
+                <div>................................<br>प्रधानाचार्य<br>(Principal Sign)</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function toggleMonth() {
+    const type = document.getElementById('examType').value;
+    const monthBox = document.getElementById('monthBox');
+    if (monthBox) monthBox.style.display = type.includes('Monthly') ? 'block' : 'none';
+}
+
+function parseData() {
+    const classLines = (document.getElementById('classes').value || '').split(/\r?\n/);
+    let groups = [];
+    let summaryData = [];
+
+    classLines.forEach(function(line) {
+        const cleanLine = line.trim();
+        if (!cleanLine) return;
+
+        let parts = cleanLine.split(',').map(s => s.trim()).filter(s => s.length > 0);
+        if (parts.length < 2) return;
+
+        const className = parts[0];
+        let subject = '';
+        let rolls = [];
+
+        if (parts.length === 3 && !isNaN(parts[1]) && !isNaN(parts[2])) {
+            subject = '';
+            let start = parseInt(parts[1], 10), end = parseInt(parts[2], 10);
+            for (let i = start; i <= end; i++) rolls.push(String(i));
+        } else if (parts.length === 4 && !isNaN(parts[2]) && !isNaN(parts[3])) {
+            subject = parts[1];
+            let start = parseInt(parts[2], 10), end = parseInt(parts[3], 10);
+            for (let i = start; i <= end; i++) rolls.push(String(i));
+        } else if (parts.length >= 2 && !isNaN(parts[1])) {
+            subject = '';
+            rolls = parts.slice(1);
+        } else {
+            subject = parts[1];
+            rolls = parts.slice(2);
+        }
+
+        if (rolls.length === 0) return;
+        groups.push(rolls.map(r => ({ c: className, s: subject, r: r })));
+        summaryData.push({ name: className, total: rolls.length });
+    });
+
+    return { groups, summaryData };
+}
+
+function generate() {
+    const rows = parseInt(document.getElementById('rows').value, 10) || 1;
+    const cols = parseInt(document.getElementById('cols').value, 10) || 1;
+    const fillDirection = document.getElementById('fillDirection').value; // नया लॉजिक
+    const { groups, summaryData } = parseData();
+
+    if (groups.length === 0) return alert('कृपया सही डेटा दर्ज करें।');
+
+    const cellHeight = Math.max(26, Math.min(50, Math.floor(270 / rows)));
+    const rollFontSize = Math.max(15, Math.min(26, Math.floor(cellHeight * 0.54)));
+
+    let grid = Array.from({ length: rows }, () => Array(cols).fill(null));
+    let pointers = groups.map(() => 0);
+    
+    // बाएँ या दाएँ से भरने का लॉजिक
+    for (let step = 0; step < cols; step++) {
+        // यदि यूजर दाएँ से (right) चुनता है, तो कॉलम पीछे से भरेंगे (cols - 1, cols - 2...)
+        let c = (fillDirection === 'right') ? (cols - 1 - step) : step;
+        
+        for (let r = 0; r < rows; r++) {
+            for (let offset = 0; offset < groups.length; offset++) {
+                const classIdx = (r + step + offset) % groups.length;
+                if (pointers[classIdx] < groups[classIdx].length) {
+                    grid[r][c] = groups[classIdx][pointers[classIdx]++];
+                    break;
+                }
+            }
+        }
+    }
+
+    document.getElementById('outSchool').innerText = document.getElementById('schoolName').value;
+    document.getElementById('outExam').innerText = document.getElementById('examType').value;
+    document.getElementById('outRoom').innerText = 'कमरा नंबर (Room No.): ' + document.getElementById('room').value;
+
+    let tableHTML = '';
+    for (let r = 0; r < rows; r++) {
+        tableHTML += '<tr>';
+        for (let c = 0; c < cols; c++) {
+            const s = grid[r][c];
+            if (s) {
+                tableHTML += `<td style="height:${cellHeight}px;">${s.s ? '<span class="sub-name">'+s.s+'</span>' : ''}<span class="r-num" style="font-size:${rollFontSize}px">${s.r}</span></td>`;
+            } else {
+                tableHTML += `<td style="height:${cellHeight}px; color:#ccc;">-</td>`;
+            }
+        }
+        tableHTML += '</tr>';
+    }
+    document.getElementById('planTable').innerHTML = tableHTML;
+
+    const grandTotal = summaryData.reduce((sum, item) => sum + item.total, 0);
+    const summaryLines = summaryData.map(d => `<b>${d.name}</b>: ${d.total}`).join(' &nbsp;|&nbsp; ');
+    
+    document.getElementById('summaryTableContainer').innerHTML = 
+        `<div style="text-align: center; font-size: 13px; margin: 5px 0;">
+            <p style="margin: 3px 0;">कक्षावार छात्र संख्या &rarr; ${summaryLines}</p>
+            <p style="margin: 3px 0;"><b>कुल छात्र (Grand Total): ${grandTotal}</b></p>
+        </div>`;
+}
+
+function downloadPDF() {
+    html2pdf().set({ margin: 4, filename: 'Plan.pdf', jsPDF: { format: 'a4', orientation: 'landscape' } })
+              .from(document.getElementById('printArea')).save();
+}
+
+function downloadWord() {
+    const room = document.getElementById('room').value || 'Room';
+    const elementHTML = document.getElementById('printArea').innerHTML;
+    
+    const cssStyle = "<st" + "yle> body { font-family: 'Arial', sans-serif; } .sheet-header { text-align: center; } .sheet-header h1 { font-size: 12pt; font-weight: normal; margin: 0; } table { border-collapse: collapse; width: 100%; margin-top: 10px; } th, td { border: 1px solid black; padding: 5px; text-align: center; } </st" + "yle>";
+    
+    const header = "<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>Seating Plan</title>" + cssStyle + "</he" + "ad><bo" + "dy>";
+    
+    const footer = "</bo" + "dy></ht" + "ml>";
+    const sourceHTML = header + elementHTML + footer;
+    
+    const source = 'data:application/vnd.ms-word;charset=utf-8,' + encodeURIComponent(sourceHTML);
+    const link = document.createElement("a");
+    document.body.appendChild(link);
+    link.href = source;
+    link.download = 'Seating_Plan_Room_' + room + '.doc';
+    link.click();
+    document.body.removeChild(link);
+}
+
+window.onload = function() {
+    toggleMonth();
+    generate();
+};
+</script>
+</body>
+</html>
